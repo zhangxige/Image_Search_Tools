@@ -1,5 +1,18 @@
 # Image Search Engine
 
+<p>
+  <img src="https://img.shields.io/badge/Python-3.12+-3776AB?logo=python&logoColor=fff" alt="Python">
+  <img src="https://img.shields.io/badge/JavaScript-ES2024-F7DF1E?logo=javascript&logoColor=000" alt="JavaScript">
+  <img src="https://img.shields.io/badge/Vue_3-4DD49B?logo=vue.js&logoColor=000" alt="Vue 3">
+  <img src="https://img.shields.io/badge/Nuxt_4-00DC82?logo=nuxt&logoColor=000" alt="Nuxt 4">
+  <img src="https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=fff" alt="FastAPI">
+  <img src="https://img.shields.io/badge/PyTorch-EE4C2C?logo=pytorch&logoColor=fff" alt="PyTorch">
+  <img src="https://img.shields.io/badge/FAISS-655FF0?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHJlY3QgeD0iNCIgeT0iNCIgd2lkdGg9IjYiIGhlaWdodD0iNiByeD0iMSIvPjxyZWN0IHg9IjE0IiB5PSI0IiB3aWR0aD0iNiBoZWlnaHQ9IjYgICAgcnk9IjEiLz48cmVjdCB4PSI0IiB5PSIxNCIgd2lkdGg9IjYiIGhlaWdodD0iNiByeD0iMSIvPjxyZWN0IHg9IjE0IiB5PSIxNCIgd2FkdGg9IjYiIGhlaWdodD0iNiAgICAgcnk9IjEiLz48L3N2Zz4=&logoColor=fff" alt="FAISS">
+  <img src="https://img.shields.io/badge/SQLite-003B57?logo=sqlite&logoColor=fff" alt="SQLite">
+  <img src="https://img.shields.io/badge/CSS3-1572B6?logo=css3&logoColor=fff" alt="CSS3">
+  <img src="https://img.shields.io/badge/HTML5-E34F26?logo=html5&logoColor=fff" alt="HTML5">
+</p>
+
 基于 **Xception + FAISS** 的以图搜图引擎。后端 Python/FastAPI，前端 Vue3/Nuxt 4。
 
 ## 功能
@@ -217,21 +230,38 @@ npm run test
 
 ### 后端
 
+Python/FastAPI 无构建步骤，直接运行即可：
+
 ```bash
 cd backend
-uv sync --no-dev
 uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+生产环境可增加 workers 或使用 gunicorn：
+
+```bash
+uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
 ```
 
 ### 前端
 
+**SSR 模式构建**（需 Node 服务器运行）：
+
 ```bash
 cd frontend
-npm install
-npm run build
-npm run preview          # 预览生产构建
-npx nuxi generate        # 导出静态文件
+NUXT_PUBLIC_API_BASE_URL=https://your-api-url npm run build
+node .output/server/index.mjs
 ```
+
+**静态导出**（无需 Node 服务器，输出到 `.output/public/`）：
+
+```bash
+cd frontend
+NUXT_PUBLIC_API_BASE_URL=https://your-api-url npm run generate
+# 将 .output/public/ 部署到任意静态托管服务 (Nginx, S3, Cloudflare Pages 等)
+```
+
+> 构建前务必设置 `NUXT_PUBLIC_API_BASE_URL` 环境变量指向后端 API 地址，否则前端会默认请求 `http://localhost:8000`。
 
 ---
 
