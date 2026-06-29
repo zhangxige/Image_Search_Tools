@@ -11,6 +11,7 @@
   <img src="https://img.shields.io/badge/SQLite-003B57?logo=sqlite&logoColor=fff" alt="SQLite">
   <img src="https://img.shields.io/badge/CSS3-1572B6?logo=css3&logoColor=fff" alt="CSS3">
   <img src="https://img.shields.io/badge/HTML5-E34F26?logo=html5&logoColor=fff" alt="HTML5">
+  <img src="https://img.shields.io/badge/license-MIT-4CAF50" alt="MIT License">
 </p>
 
 基于 **Xception + FAISS** 的以图搜图引擎。后端 Python/FastAPI，前端 Vue3/Nuxt 4。
