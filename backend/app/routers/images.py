@@ -12,6 +12,7 @@ from app.models import ImageRecord, FeatureVector, IngestionLog
 from app.schemas import ImageResponse, ImageUpdate, IngestionLogResponse, ExifResponse
 from app.config import UPLOAD_DIR
 from app.faiss_manager import rebuild_from_db
+from app.feature_extractor import get_available_models
 from app.exif_utils import extract_exif, open_image
 
 router = APIRouter(prefix="/api/images", tags=["images"])
@@ -62,7 +63,8 @@ def delete_image(image_id: int, db: Session = Depends(get_db)):
     db.delete(record)
     db.commit()
 
-    rebuild_from_db(db)
+    for m in get_available_models():
+        rebuild_from_db(db, m)
 
     return {"message": "Image deleted", "id": image_id}
 
@@ -88,7 +90,8 @@ def batch_delete_images(image_ids: list[int] = Query(...), db: Session = Depends
     db.commit()
 
     if deleted:
-        rebuild_from_db(db)
+        for m in get_available_models():
+            rebuild_from_db(db, m)
 
     return {"deleted": deleted, "not_found": not_found}
 

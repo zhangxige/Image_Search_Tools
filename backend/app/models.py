@@ -1,5 +1,5 @@
 import datetime
-from sqlalchemy import Column, Integer, String, LargeBinary, DateTime, ForeignKey, Text, JSON, Boolean
+from sqlalchemy import Column, Integer, String, LargeBinary, DateTime, ForeignKey, Text, JSON, Boolean, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -21,7 +21,7 @@ class ImageRecord(Base):
     hdr_format = Column(String(50), nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
-    feature = relationship("FeatureVector", uselist=False, back_populates="image", cascade="all, delete-orphan")
+    features = relationship("FeatureVector", back_populates="image", cascade="all, delete-orphan")
     logs = relationship("IngestionLog", back_populates="image", cascade="all, delete-orphan")
 
 
@@ -29,12 +29,17 @@ class FeatureVector(Base):
     __tablename__ = "features"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    image_id = Column(Integer, ForeignKey("images.id"), nullable=False, unique=True)
+    image_id = Column(Integer, ForeignKey("images.id"), nullable=False)
     vector = Column(LargeBinary, nullable=False)
     dimension = Column(Integer, default=2048)
+    model_name = Column(String(50), nullable=False, default="xception")
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
-    image = relationship("ImageRecord", back_populates="feature")
+    __table_args__ = (
+        UniqueConstraint("image_id", "model_name", name="uq_image_model"),
+    )
+
+    image = relationship("ImageRecord", back_populates="features")
 
 
 class IngestionLog(Base):

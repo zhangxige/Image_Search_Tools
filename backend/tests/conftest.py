@@ -32,9 +32,11 @@ from app.main import app
 
 
 def _make_mock_extract():
-    def mock_extract(image):
+    from app.feature_extractor import get_model_dim
+    def mock_extract(image, model_name="xception"):
+        dim = get_model_dim(model_name)
         rng = np.random.RandomState(42)
-        vec = rng.randn(2048).astype(np.float32)
+        vec = rng.randn(dim).astype(np.float32)
         norm = np.linalg.norm(vec)
         return vec / norm
     return mock_extract
@@ -77,8 +79,15 @@ def client(db_session, mock_feature_extractor):
 
     app.dependency_overrides[get_db] = override_get_db
 
+    from app.feature_extractor import get_model_dim
     from app.faiss_manager import build_index
-    build_index([], np.array([]).reshape(0, 2048))
+    # Build xception + resnet50 always; clip built only if transformers available
+    for m in ["xception", "resnet50"]:
+        dim = get_model_dim(m)
+        build_index(m, [], np.array([]).reshape(0, dim))
+    from app.feature_extractor import _transformers_available as _tavail
+    if _tavail:
+        build_index("clip", [], np.array([]).reshape(0, get_model_dim("clip")))
 
     with TestClient(app) as c:
         yield c

@@ -103,7 +103,7 @@ class TestFeatureVector:
         db_session.commit()
 
         assert feat.image.id == record.id
-        assert record.feature.id == feat.id
+        assert record.features[0].id == feat.id
 
 
 class TestIngestionLog:

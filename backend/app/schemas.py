@@ -31,6 +31,7 @@ class SearchResult(BaseModel):
 
 class SearchResponse(BaseModel):
     results: List[SearchResult]
+    model: str = "xception"
 
 
 class IngestionLogResponse(BaseModel):

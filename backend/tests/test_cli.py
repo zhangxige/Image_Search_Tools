@@ -52,6 +52,7 @@ class TestDoIngest:
                 args = MagicMock()
                 args.directory = str(tmp_path)
                 args.url = "http://localhost:8000"
+                args.model = None
                 from cli import do_ingest
                 do_ingest(args)
 
@@ -88,6 +89,7 @@ class TestDoIngest:
                 args = MagicMock()
                 args.directory = str(tmp_path)
                 args.url = "http://localhost:8000"
+                args.model = None
                 from cli import do_ingest
                 do_ingest(args)
 
@@ -100,6 +102,7 @@ class TestDoIngest:
         args = MagicMock()
         args.directory = "/nonexistent/path"
         args.url = "http://localhost:8000"
+        args.model = None
         from cli import do_ingest
         with pytest.raises(SystemExit):
             do_ingest(args)
@@ -109,6 +112,7 @@ class TestDoIngest:
         args = MagicMock()
         args.directory = str(tmp_path)
         args.url = "http://localhost:8000"
+        args.model = None
         from cli import do_ingest
         out = io.StringIO()
         err = io.StringIO()
@@ -130,6 +134,7 @@ class TestDoIngest:
                 args = MagicMock()
                 args.directory = str(tmp_path)
                 args.url = "http://localhost:8000"
+                args.model = None
                 from cli import do_ingest
                 do_ingest(args)
 
@@ -174,6 +179,7 @@ class TestDoSearch:
                 args.directory = str(tmp_path)
                 args.url = "http://localhost:8000"
                 args.top_k = 5
+                args.model = "xception"
                 from cli import do_search
                 do_search(args)
 
@@ -198,6 +204,7 @@ class TestDoSearch:
             args.directory = str(tmp_path)
             args.url = "http://localhost:8000"
             args.top_k = 10
+            args.model = "xception"
             from cli import do_search
             do_search(args)
 
@@ -220,6 +227,7 @@ class TestDoSearch:
                 args.directory = str(tmp_path)
                 args.url = "http://localhost:8000"
                 args.top_k = 5
+                args.model = "xception"
                 from cli import do_search
                 do_search(args)
 
@@ -230,11 +238,60 @@ class TestDoSearch:
         args.directory = str(tmp_path)
         args.url = "http://localhost:8000"
         args.top_k = 5
+        args.model = "xception"
         from cli import do_search
         out = io.StringIO()
         with patch("sys.stdout", out):
             do_search(args)
         assert "No images found" in out.getvalue()
+
+
+class TestCLIModelFlag:
+    def test_ingest_with_model_flag(self, tmp_path):
+        d = tmp_path / "cats"
+        d.mkdir()
+        (d / "cat.jpg").write_text("data")
+
+        mock_resp = MagicMock()
+        mock_resp.is_success = True
+
+        with patch("cli.httpx.post", return_value=mock_resp) as mock_post:
+            with patch("sys.argv", ["cli.py", "ingest", str(tmp_path), "--model", "resnet50"]):
+                main()
+
+        args, kwargs = mock_post.call_args
+        assert "params" in kwargs
+        assert kwargs["params"].get("model") == "resnet50"
+
+    def test_search_with_model_flag(self, tmp_path):
+        (tmp_path / "q.jpg").write_text("data")
+
+        mock_resp = MagicMock()
+        mock_resp.is_success = True
+        mock_resp.json.return_value = {"results": []}
+
+        with patch("cli.httpx.post", return_value=mock_resp) as mock_post:
+            with patch("sys.argv", ["cli.py", "search", str(tmp_path), "--model", "resnet50"]):
+                main()
+
+        args, kwargs = mock_post.call_args
+        assert "params" in kwargs
+        assert kwargs["params"].get("model") == "resnet50"
+
+    def test_search_default_model(self, tmp_path):
+        (tmp_path / "q.jpg").write_text("data")
+
+        mock_resp = MagicMock()
+        mock_resp.is_success = True
+        mock_resp.json.return_value = {"results": []}
+
+        with patch("cli.httpx.post", return_value=mock_resp) as mock_post:
+            with patch("sys.argv", ["cli.py", "search", str(tmp_path)]):
+                main()
+
+        args, kwargs = mock_post.call_args
+        assert "params" in kwargs
+        assert kwargs["params"].get("model") == "xception"
 
 
 class TestArgparse:

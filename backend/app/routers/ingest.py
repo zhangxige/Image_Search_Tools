@@ -1,7 +1,7 @@
 import uuid
 from pathlib import Path
 from typing import Optional
-from fastapi import APIRouter, UploadFile, File, Depends, Form
+from fastapi import APIRouter, UploadFile, File, Depends, Form, Query
 from sqlalchemy.orm import Session
 from PIL import Image
 import io
@@ -9,7 +9,7 @@ import io
 from app.database import get_db
 from app.models import ImageRecord, FeatureVector, IngestionLog
 from app.schemas import IngestionResult, ImageResponse
-from app.feature_extractor import extract_feature
+from app.feature_extractor import extract_feature, get_available_models, get_model_dim
 from app.faiss_manager import add_to_index
 from app.config import UPLOAD_DIR
 from app.exif_utils import extract_exif, detect_hdr, heif_to_pil_with_exif
@@ -19,7 +19,7 @@ _HEIF_EXTS = {".heic", ".heif", ".heics", ".avif"}
 router = APIRouter(prefix="/api/ingest", tags=["ingest"])
 
 
-def _process_image(file: UploadFile, db: Session, tags: str = ""):
+def _process_image(file: UploadFile, db: Session, tags: str = "", model_name: Optional[str] = None):
     contents = file.file.read()
     ext = Path(file.filename).suffix or ".jpg"
 
@@ -60,7 +60,7 @@ def _process_image(file: UploadFile, db: Session, tags: str = ""):
         new_file_size = len(contents)
         stored_mime = file.content_type
 
-    feature = extract_feature(image)
+    models_to_extract = [model_name] if model_name else get_available_models()
 
     db_record = ImageRecord(
         filename=unique_name,
@@ -77,13 +77,21 @@ def _process_image(file: UploadFile, db: Session, tags: str = ""):
     db.add(db_record)
     db.flush()
 
-    feature_blob = feature.tobytes()
-    db_feature = FeatureVector(
-        image_id=db_record.id,
-        vector=feature_blob,
-        dimension=2048,
-    )
-    db.add(db_feature)
+    for m_name in models_to_extract:
+        try:
+            feature = extract_feature(image, m_name)
+            feature_blob = feature.tobytes()
+            db_feature = FeatureVector(
+                image_id=db_record.id,
+                vector=feature_blob,
+                dimension=get_model_dim(m_name),
+                model_name=m_name,
+            )
+            db.add(db_feature)
+            add_to_index(m_name, db_record.id, feature)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to extract features for '{m_name}' on image {db_record.id}", exc_info=True)
 
     db_log = IngestionLog(
         operation="ingest",
@@ -96,8 +104,6 @@ def _process_image(file: UploadFile, db: Session, tags: str = ""):
 
     db.commit()
 
-    add_to_index(db_record.id, feature)
-
     return ImageResponse.model_validate(db_record)
 
 
@@ -105,6 +111,7 @@ def _process_image(file: UploadFile, db: Session, tags: str = ""):
 def ingest_images(
     files: list[UploadFile] = File(...),
     tags: Optional[str] = Form(""),
+    model: Optional[str] = Query(None, description="Model name (default: all models)"),
     db: Session = Depends(get_db),
 ):
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -114,17 +121,27 @@ def ingest_images(
 
     for file in files:
         try:
-            result = _process_image(file, db, tags or "")
+            result = _process_image(file, db, tags or "", model)
             success.append(result)
         except Exception as e:
-            failed.append({"filename": file.filename, "error": str(e)})
+            import traceback
+            traceback.print_exc()
+            failed.append({"filename": file.filename, "error": f"[{type(e).__name__}] {e}"})
             db_log = IngestionLog(
                 operation="ingest",
                 status="failed",
                 filename=file.filename,
-                message=str(e),
+                message=f"[{type(e).__name__}] {e}",
             )
             db.add(db_log)
             db.commit()
+
+    # Ensure FAISS indexes are in sync with DB after ingest
+    from app.faiss_manager import rebuild_from_db
+    for m_name in get_available_models():
+        try:
+            rebuild_from_db(db, m_name)
+        except Exception:
+            pass
 
     return IngestionResult(success=success, failed=failed, total=len(success) + len(failed))

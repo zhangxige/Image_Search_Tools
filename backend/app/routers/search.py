@@ -1,10 +1,10 @@
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Form
+from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Form, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import ImageRecord
 from app.schemas import SearchResponse, SearchResult, ImageResponse
-from app.feature_extractor import extract_feature
+from app.feature_extractor import extract_feature, get_model, get_available_models, ModelLoadError
 from app.faiss_manager import search as faiss_search
 from app.config import TOP_K
 from app.exif_utils import open_image
@@ -16,6 +16,7 @@ router = APIRouter(prefix="/api/search", tags=["search"])
 def search_images(
     files: list[UploadFile] = File(...),
     top_k: int = Form(TOP_K),
+    model: str = Query("xception", description="Feature extraction model to use"),
     db: Session = Depends(get_db),
 ):
     if not files:
@@ -23,11 +24,20 @@ def search_images(
 
     all_distances = {}
 
+    try:
+        get_model(model)
+    except ModelLoadError:
+        available = get_available_models()
+        raise HTTPException(
+            status_code=400,
+            detail=f"Model '{model}' is not available (download failed). Available: {', '.join(available) or 'none'}",
+        )
+
     for file in files:
         contents = file.file.read()
         image = open_image(contents, file.filename)
-        feature = extract_feature(image)
-        results = faiss_search(feature, top_k)
+        feature = extract_feature(image, model)
+        results = faiss_search(feature, top_k, model_name=model)
 
         for image_id, distance in results:
             if image_id not in all_distances:
@@ -50,4 +60,4 @@ def search_images(
                 distance=distance,
             ))
 
-    return SearchResponse(results=results)
+    return SearchResponse(results=results, model=model)

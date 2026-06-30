@@ -21,6 +21,9 @@ def do_ingest(args: argparse.Namespace) -> None:
     total = 0
     ok = 0
     fail = 0
+    params = {}
+    if args.model:
+        params["model"] = args.model
 
     for dir_path in sorted(root.iterdir()):
         if not dir_path.is_dir():
@@ -38,7 +41,7 @@ def do_ingest(args: argparse.Namespace) -> None:
                 with open(file_path, "rb") as f:
                     files = {"files": (file_path.name, f, "image/" + file_path.suffix.lstrip("."))}
                     data = {"tags": tags}
-                    resp = httpx.post(f"{url}/api/ingest", files=files, data=data, timeout=120)
+                    resp = httpx.post(f"{url}/api/ingest", params=params, files=files, data=data, timeout=120)
                     if resp.is_success:
                         ok += 1
                         print(f"  ✓ {file_path.relative_to(root)}")
@@ -60,6 +63,8 @@ def do_search(args: argparse.Namespace) -> None:
 
     url = args.url.rstrip("/")
     top_k = args.top_k
+    model = args.model
+    params = {"model": model}
 
     image_files = sorted(
         p for p in root.rglob("*") if p.suffix.lower() in SUPPORTED_EXTENSIONS
@@ -74,7 +79,7 @@ def do_search(args: argparse.Namespace) -> None:
             with open(file_path, "rb") as f:
                 files = {"files": (file_path.name, f, "image/" + file_path.suffix.lstrip("."))}
                 data = {"top_k": str(top_k)}
-                resp = httpx.post(f"{url}/api/search", files=files, data=data, timeout=120)
+                resp = httpx.post(f"{url}/api/search", params=params, files=files, data=data, timeout=120)
                 if not resp.is_success:
                     print(f"  Error: {resp.status_code} {resp.text}", file=sys.stderr)
                     continue
@@ -100,11 +105,15 @@ def main() -> None:
 
     ingest_parser = subparsers.add_parser("ingest", help="Batch-ingest images from labeled folders")
     ingest_parser.add_argument("directory", help="Root directory containing labeled subfolders (folder names = tags)")
+    ingest_parser.add_argument("--model", choices=["xception", "resnet50", "clip"], default=None,
+                               help="Model to use (default: all models)")
     ingest_parser.set_defaults(func=do_ingest)
 
     search_parser = subparsers.add_parser("search", help="Batch-search images against the database")
     search_parser.add_argument("directory", help="Directory containing query images")
     search_parser.add_argument("-k", "--top-k", type=int, default=5, help="Number of top results per query (default: 5)")
+    search_parser.add_argument("--model", choices=["xception", "resnet50", "clip"], default="xception",
+                               help="Feature extraction model (default: xception)")
     search_parser.set_defaults(func=do_search)
 
     args = parser.parse_args()

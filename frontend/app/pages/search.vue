@@ -29,9 +29,17 @@
         </div>
       </div>
 
-      <div class="form-group" style="margin-top: 1rem;">
-        <label for="topK">Top-K results</label>
-        <input id="topK" v-model.number="topK" type="number" min="1" max="50" style="width: 100px;" />
+      <div class="form-row" style="margin-top: 1rem; display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
+        <div class="form-group">
+          <label for="topK">Top-K results</label>
+          <input id="topK" v-model.number="topK" type="number" min="1" max="50" style="width: 100px;" />
+        </div>
+        <div class="form-group">
+          <label for="modelSelect">Model</label>
+          <select id="modelSelect" v-model="selectedModel" style="min-width: 140px;">
+            <option v-for="m in availableModels" :key="m" :value="m">{{ m }}</option>
+          </select>
+        </div>
       </div>
 
       <div style="margin-top: 1rem;">
@@ -74,6 +82,7 @@
       <div v-else>
         <h2 style="margin-bottom: 1rem; font-size: 1.125rem; font-weight: 600;">
           Results <span class="text-muted" style="font-weight: 400;">({{ results.length }})</span>
+          <span v-if="selectedModel" class="model-badge">{{ selectedModel }}</span>
         </h2>
 
         <div class="results-list">
@@ -147,6 +156,8 @@ const searching = ref(false)
 const results = ref(null)
 const topK = ref(5)
 const fileInput = ref(null)
+const availableModels = ref(['xception'])
+const selectedModel = ref('xception')
 
 const previewImage = ref(null)
 const previewVisible = ref(false)
@@ -288,6 +299,18 @@ async function exportToDir(result, idx) {
   }
 }
 
+onMounted(async () => {
+  try {
+    const res = await fetch(`${config.public.apiBaseUrl}/api/models`)
+    if (res.ok) {
+      availableModels.value = await res.json()
+      if (!availableModels.value.includes(selectedModel.value)) {
+        selectedModel.value = availableModels.value[0]
+      }
+    }
+  } catch {}
+})
+
 onUnmounted(() => clearTimeout(exportTimer))
 
 async function searchImages() {
@@ -300,9 +323,13 @@ async function searchImages() {
     formData.append('files', file)
   }
   formData.append('top_k', topK.value.toString())
+  if (selectedModel.value) {
+    formData.append('model', selectedModel.value)
+  }
 
   try {
-    const res = await fetch(`${config.public.apiBaseUrl}/api/search`, {
+    const searchUrl = `${config.public.apiBaseUrl}/api/search${selectedModel.value ? `?model=${selectedModel.value}` : ''}`
+    const res = await fetch(searchUrl, {
       method: 'POST',
       body: formData,
     })
@@ -533,5 +560,17 @@ async function searchImages() {
 .toast-leave-to {
   opacity: 0;
   transform: translateY(-0.5rem);
+}
+
+.model-badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  background: var(--primary-light);
+  color: var(--primary);
+  border-radius: 4px;
+  vertical-align: middle;
 }
 </style>
