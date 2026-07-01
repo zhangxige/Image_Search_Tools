@@ -14,6 +14,10 @@
   <img src="https://img.shields.io/badge/license-MIT-4CAF50" alt="MIT License">
 </p>
 
+<p align="center">
+  <img src="screenshot.png" alt="Image Search Engine 首页截图" width="800">
+</p>
+
 基于 **Xception + FAISS** 的以图搜图引擎。后端 Python/FastAPI，前端 Vue3/Nuxt 4。
 
 ## 功能
